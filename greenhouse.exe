@@ -1,0 +1,88 @@
+#include <DHT.h>
+
+#define DHTPIN 2        // DHT11 data pin connected to Arduino D2
+#define DHTTYPE DHT11   // Define sensor type as DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+const int soilMoisturePin = A0;  // Soil moisture sensor analog output to A0
+const int ldrPin = 3;            // LDR digital output connected to D3
+const int waterPumpPin = 4;      // Relay IN1: Pump
+const int fanPin = 5;            // Relay IN2: Cooling Fan
+const int growLightPin = 6;      // Relay IN3: Grow Light (LED bulb)
+
+const int moistureThreshold = 600;   // Soil dryness threshold
+const int temperatureThreshold = 30; // Temp in °C to trigger cooling fan
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+
+  pinMode(ldrPin, INPUT);
+  pinMode(waterPumpPin, OUTPUT);
+  pinMode(fanPin, OUTPUT);
+  pinMode(growLightPin, OUTPUT);
+
+  // Turn OFF all actuators at start (HIGH = ON, LOW = OFF)
+  digitalWrite(waterPumpPin, LOW);
+  digitalWrite(fanPin, LOW);
+  digitalWrite(growLightPin, LOW);
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+  int lightStatus = digitalRead(ldrPin); // 0 = dark, 1 = bright
+  int soilMoisture = analogRead(soilMoisturePin);
+
+  Serial.println("-----------------------------");
+
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("Failed to read from DHT sensor!");
+  } else {
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.println("°C");
+
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.println("%");
+  }
+
+  if (lightStatus == LOW) {
+    Serial.println("Light Status: Bright");
+  } else {
+    Serial.println("Light Status: Dark");
+  }
+
+  Serial.print("Soil Moisture Reading: ");
+  Serial.println(soilMoisture);
+
+  // Water pump control (HIGH = ON, LOW = OFF)
+  if (soilMoisture > moistureThreshold) {
+    Serial.println("Soil is dry. Turning ON water pump.");
+    digitalWrite(waterPumpPin, HIGH);
+  } else {
+    Serial.println("Soil is moist. Turning OFF water pump.");
+    digitalWrite(waterPumpPin, LOW);
+  }
+
+  // Cooling fan control
+  if (!isnan(temperature) && temperature > temperatureThreshold) {
+    Serial.println("Temperature is high. Turning ON cooling fan.");
+    digitalWrite(fanPin, HIGH);
+  } else {
+    Serial.println("Temperature is normal. Turning OFF cooling fan.");
+    digitalWrite(fanPin, LOW);
+  }
+
+  // Grow light control based on LDR
+  if (lightStatus == HIGH) {
+    Serial.println("Environment is dark. Turning ON grow light.");
+    digitalWrite(growLightPin, HIGH);
+  } else {
+    Serial.println("Environment is bright. Turning OFF grow light.");
+    digitalWrite(growLightPin, LOW);
+  }
+
+  delay(2000); // Delay for readability and stability
+}
